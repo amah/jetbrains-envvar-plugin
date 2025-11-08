@@ -1,0 +1,19 @@
+# IntelliJ plugin build outputs
+.idea/
+*.iml
+out/
+
+# Gradle
+.gradle/
+build/
+plugin-env-var/build/
+
+# Web assets
+webview-ui/node_modules/
+webview-ui/dist/
+
+# OS files
+.DS_Store
+
+# Logs
+*.log

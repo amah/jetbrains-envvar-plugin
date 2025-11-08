@@ -1,0 +1,20 @@
+<idea-plugin>
+    <id>com.example.pluginenvvar</id>
+    <name>Environment Variable Viewer</name>
+    <vendor email="dev@example.com" url="https://example.com">JetBrains Env Var Team</vendor>
+    <version>0.1.0</version>
+
+    <description><![CDATA[
+        <p>Tool window that surfaces system environment variables inside the IDE with filtering and masking helpers.</p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Environment Variables" anchor="right"
+                    icon="/icons/toolWindow.svg"
+                    factoryClass="com.example.pluginenvvar.PluginEnvVarToolWindowFactory"
+                    canCloseContent="false"
+                    secondary="true"/>
+    </extensions>
+</idea-plugin>
