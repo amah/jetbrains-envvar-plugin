@@ -10,14 +10,14 @@ plugins {
 }
 
 group = "com.example.pluginenvvar"
-version = "0.1.1"
+version = "0.1.2"
 
 repositories {
     mavenCentral()
 }
 
 intellij {
-    version.set("2023.2")
+    version.set("2024.2")
     type.set("IC")
     plugins.set(listOf("com.intellij.java"))
 }
@@ -33,7 +33,7 @@ kotlin {
 
 tasks.patchPluginXml {
     version.set(project.version.toString())
-    sinceBuild.set("232")
+    sinceBuild.set("242")
     untilBuild.set(null as String?)
     changeNotes.set("Initial environment variable tool window preview.")
 }
