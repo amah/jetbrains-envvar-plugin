@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.example.pluginenvvar"
-version = "0.2.0"
+version = "0.3.0"
 
 repositories {
     mavenCentral()
@@ -36,6 +36,13 @@ tasks.patchPluginXml {
     sinceBuild.set("242")
     untilBuild.set(null as String?)
     changeNotes.set("""
+        <h2>0.3.0</h2>
+        <ul>
+            <li>Display JVM/Plugin environment variables in separate view</li>
+            <li>Add Node.js path configuration input with Apply button</li>
+            <li>Auto-detect Node.js from system PATH</li>
+            <li>Show Node.js status indicator (running/stopped, version)</li>
+        </ul>
         <h2>0.2.0</h2>
         <ul>
             <li>Added HTTP Tester tab with low-level connection tracing</li>
