@@ -30,6 +30,19 @@ object EnvFormatter {
 
     fun asJson(rawEnv: Map<String, String>): String = json.encodeToString(buildPayload(rawEnv))
 
+    /**
+     * Build payload from Node.js entries (already key/value pairs)
+     */
+    fun asJsonFromEntries(entries: List<NodeProcessManager.EnvVarEntry>): String {
+        val payload = entries
+            .map { entry ->
+                val sensitive = isSensitive(entry.key)
+                EnvVariablePayload(entry.key, if (sensitive) mask(entry.value) else entry.value, sensitive)
+            }
+            .sortedBy { it.key.lowercase() }
+        return json.encodeToString(payload)
+    }
+
     private fun isSensitive(key: String): Boolean {
         val upper = key.uppercase()
         return redactedKeywords.any { keyword -> upper.contains(keyword) }
