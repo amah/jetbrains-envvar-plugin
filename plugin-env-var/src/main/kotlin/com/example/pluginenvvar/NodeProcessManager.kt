@@ -30,14 +30,36 @@ class NodeProcessManager : Disposable {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
+    // Custom node path set by user (takes precedence over env var)
+    @Volatile
+    var customNodePath: String? = null
+
+    // Detected/used node path info
+    @Volatile
+    var currentNodePath: String? = null
+        private set
+
+    @Volatile
+    var nodeVersion: String? = null
+        private set
+
     // Callbacks for different message types
     private var onEnvVarsResult: ((List<EnvVarEntry>) -> Unit)? = null
     private var onHttpResult: ((HttpResult) -> Unit)? = null
     private var onReady: (() -> Unit)? = null
     private var onError: ((String) -> Unit)? = null
+    private var onNodeInfo: ((NodeInfo) -> Unit)? = null
 
     // Pending HTTP requests waiting for response
     private val pendingRequests = ConcurrentHashMap<String, CompletableDeferred<HttpResult>>()
+
+    @Serializable
+    data class NodeInfo(
+        val nodePath: String,
+        val nodeVersion: String?,
+        val isRunning: Boolean,
+        val error: String? = null
+    )
 
     @Serializable
     data class EnvVarEntry(val key: String, val value: String)
@@ -95,6 +117,7 @@ class NodeProcessManager : Disposable {
 
     private suspend fun startProcess() {
         val nodePath = getNodePath()
+        currentNodePath = nodePath
         val agentScript = extractAgentScript()
 
         logger.info("Starting Node.js process: $nodePath ${agentScript.absolutePath}")
@@ -122,15 +145,99 @@ class NodeProcessManager : Disposable {
     }
 
     private fun getNodePath(): String {
-        // Check for custom node path environment variable
-        val customPath = System.getenv("JB_ENVVAR_NODE_PATH")
-        if (!customPath.isNullOrBlank()) {
-            logger.info("Using custom Node.js path from JB_ENVVAR_NODE_PATH: $customPath")
-            return customPath
+        // 1. Check for user-specified custom path (from UI)
+        val userPath = customNodePath
+        if (!userPath.isNullOrBlank()) {
+            logger.info("Using user-specified Node.js path: $userPath")
+            return userPath
         }
 
-        // Use system node
+        // 2. Check for custom node path environment variable
+        val envPath = System.getenv("JB_ENVVAR_NODE_PATH")
+        if (!envPath.isNullOrBlank()) {
+            logger.info("Using Node.js path from JB_ENVVAR_NODE_PATH: $envPath")
+            return envPath
+        }
+
+        // 3. Search for node in PATH
+        val foundPath = findNodeInPath()
+        if (foundPath != null) {
+            logger.info("Found Node.js in PATH: $foundPath")
+            return foundPath
+        }
+
+        // 4. Fallback to just "node" and hope it works
+        logger.info("Using default 'node' command")
         return "node"
+    }
+
+    private fun findNodeInPath(): String? {
+        val pathEnv = System.getenv("PATH") ?: return null
+        val pathSeparator = File.pathSeparator
+        val isWindows = System.getProperty("os.name").lowercase().contains("win")
+        val nodeNames = if (isWindows) listOf("node.exe", "node.cmd", "node.bat") else listOf("node")
+
+        for (dir in pathEnv.split(pathSeparator)) {
+            for (nodeName in nodeNames) {
+                val nodeFile = File(dir, nodeName)
+                if (nodeFile.exists() && nodeFile.canExecute()) {
+                    return nodeFile.absolutePath
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * Restart the Node.js process with a new path.
+     */
+    fun restartWithPath(nodePath: String?, onComplete: (NodeInfo) -> Unit) {
+        scope.launch {
+            try {
+                // Shutdown existing process
+                shutdown()
+
+                // Set new path
+                customNodePath = nodePath?.takeIf { it.isNotBlank() }
+
+                // Start new process
+                ensureRunning(
+                    onReady = {
+                        onComplete(NodeInfo(
+                            nodePath = currentNodePath ?: "unknown",
+                            nodeVersion = nodeVersion,
+                            isRunning = true
+                        ))
+                    },
+                    onError = { error ->
+                        onComplete(NodeInfo(
+                            nodePath = currentNodePath ?: nodePath ?: "unknown",
+                            nodeVersion = null,
+                            isRunning = false,
+                            error = error
+                        ))
+                    }
+                )
+            } catch (e: Exception) {
+                onComplete(NodeInfo(
+                    nodePath = nodePath ?: "unknown",
+                    nodeVersion = null,
+                    isRunning = false,
+                    error = e.message
+                ))
+            }
+        }
+    }
+
+    /**
+     * Get current Node.js info.
+     */
+    fun getNodeInfo(): NodeInfo {
+        return NodeInfo(
+            nodePath = currentNodePath ?: customNodePath ?: System.getenv("JB_ENVVAR_NODE_PATH") ?: findNodeInPath() ?: "node",
+            nodeVersion = nodeVersion,
+            isRunning = isProcessRunning()
+        )
     }
 
     private fun extractAgentScript(): File {
@@ -203,9 +310,10 @@ class NodeProcessManager : Disposable {
 
         when (type) {
             "ready" -> {
-                val nodeVersion = jsonElement.jsonObject["nodeVersion"]?.jsonPrimitive?.content
+                val version = jsonElement.jsonObject["nodeVersion"]?.jsonPrimitive?.content
                 val pid = jsonElement.jsonObject["pid"]?.jsonPrimitive?.intOrNull
-                logger.info("Node.js agent ready (version: $nodeVersion, pid: $pid)")
+                nodeVersion = version
+                logger.info("Node.js agent ready (version: $version, pid: $pid)")
                 onReady?.invoke()
             }
 
