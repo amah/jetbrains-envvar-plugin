@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.example.pluginenvvar"
-version = "0.1.2"
+version = "0.2.0"
 
 repositories {
     mavenCentral()
@@ -35,7 +35,15 @@ tasks.patchPluginXml {
     version.set(project.version.toString())
     sinceBuild.set("242")
     untilBuild.set(null as String?)
-    changeNotes.set("Initial environment variable tool window preview.")
+    changeNotes.set("""
+        <h2>0.2.0</h2>
+        <ul>
+            <li>Added HTTP Tester tab with low-level connection tracing</li>
+            <li>Environment variables now collected from Node.js process</li>
+            <li>Detailed tracing: DNS, TLS/SSL handshake, certificates, proxy detection</li>
+            <li>Support custom Node.js path via JB_ENVVAR_NODE_PATH environment variable</li>
+        </ul>
+    """.trimIndent())
 }
 
 dependencies {
